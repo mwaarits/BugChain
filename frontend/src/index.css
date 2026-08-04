@@ -2,32 +2,33 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* NEXUS palette — see DESIGN.md: bg #050010, primary cyan #00F0FF, accent magenta #FF007F */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.5rem;
+  --background: #050010;
+  --foreground: #ffffff;
+  --card: #0b0b16;
+  --card-foreground: #ffffff;
+  --popover: #0b0b16;
+  --popover-foreground: #ffffff;
+  --primary: #00f0ff;
+  --primary-foreground: #050010;
+  --secondary: #ff007f;
+  --secondary-foreground: #ffffff;
+  --muted: #13131f;
+  --muted-foreground: #a1a1aa;
+  --accent: #ff007f;
+  --accent-foreground: #ffffff;
+  --destructive: #ff4d6d;
+  --destructive-foreground: #ffffff;
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #00f0ff;
+  --chart-1: #00f0ff;
+  --chart-2: #ff007f;
+  --chart-3: #a1a1aa;
+  --chart-4: #4d7cff;
+  --chart-5: #ff9f1c;
 }
 
 @theme inline {
@@ -56,12 +57,28 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+@theme {
+  --font-sans: "VT323", ui-monospace, monospace;
+  --font-display: "Space Mono", ui-monospace, monospace;
+}
+
 * {
   border-color: var(--border);
 }
 
 body {
   background-color: var(--background);
+  /* ponytail: static CSS glow, no WebGL — add canvas FX only if asked */
+  background-image: radial-gradient(600px 320px at 50% -10%, rgba(0, 240, 255, 0.09), transparent),
+    radial-gradient(700px 400px at 95% 110%, rgba(255, 0, 127, 0.07), transparent);
+  background-attachment: fixed;
   color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: "VT323", ui-monospace, monospace;
+}
+
+/* DESIGN.md label-md: Space Mono, 12px, letterspaced */
+label {
+  font-family: "Space Mono", ui-monospace, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
 }
