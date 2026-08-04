@@ -50,7 +50,8 @@ function disputeFlag(uint256 bountyId) external view returns (bool disputeReques
 ### 3. Trust boundary frontend–backend
 
 - **Mutasi (dana/judgment)**: kunci researcher & business **tidak pernah ada di backend** — hanya wallet browser (EIP-1193/EIP-6963). Backend tak bisa memalsukan/tandatangani tx mereka.
-- **Admin key** berada di backend (env/secret manager) = platform admin, sesuai model trust ticket 03. Backend punya fungsi admin (open/close/resolve dispute) — **known limitation**: single admin key di server = single point of failure (server kena hack → attacker bisa resolve dispute). Wajib review ulang sebelum mainnet; key di secret manager, tak pernah di-commit, ada rencana rotasi jika bocor.
+- **Admin key** berada di backend (env/secret manager) = platform admin, sesuai model trust ticket 03. Backend punya fungsi admin (open/close/resolve dispute) — **known limitation**: single admin key di server = single point of failure (server kena hack → attacker bisa resolve dispute). Wajib review ulang sebelum mainnet; key di secret manager, tak pernah di-commit, ada rencana rotasi jika bocor (`transferAdmin` on-chain + ganti `ADMIN_PRIVATE_KEY` — tanpa redeploy).
+- **Operator auth (revisi 2026-08-04)**: gerbang `/api/admin/*` tidak lagi bergantung pada shared token yang diketik manual di browser. Backend memakai `ADMIN_OPERATOR` (address wallet operator) — challenge nonce → tanda tangan wallet → session token 15 menit (in-memory). `ADMIN_TOKEN` tetap berlaku sebagai fallback legacy bila `ADMIN_OPERATOR` kosong. Scope metadata write juga dikunci: hanya wallet Business pemilik bounty yang bisa menyimpan `scope_text` (tanda tangan pesan `Save scope for BugChain bounty #N`, diverifikasi terhadap `bounties.business`).
 - Frontend bukan sumber kebenaran; hanya konsumen API. Data UI bisa diverifikasi terhadap chain (snapshot/callStatic) saat perlu (mis. verifikasi status payout).
 
 ### 4. Wallet & tooling

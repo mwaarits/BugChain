@@ -23,14 +23,21 @@ Dispute = eskalasi yang **state-nya on-chain** (kontrak harus meng-gerbang admin
 ```solidity
 enum DisputeReason { researcherFlag, ownerSilence }
 
-function raiseDispute(uint256 bountyId) external;      // siapa pun
+function raiseDispute(uint256 bountyId, DisputeReason reason) external; // guard on-chain, admin exempt
 function openDispute(uint256 bountyId, DisputeReason reason) external; // admin saja
 function closeDispute(uint256 bountyId) external;      // admin saja
 ```
 
-- `raiseDispute` — siapa pun, tanpa syarat; menyetel flag `disputeRequested` + event `DisputeRaised`. Murah (bool + event), memberi researcher bukti timestamp on-chain bahwa ia protes. Spam hanya menyalakan flag publik.
-- `openDispute` — hanya admin; menyalakan flag gating `inDispute` (dari ticket 02). `reason` hanya untuk event, bukan gate — kecuali jalur owner-silence (di bawah).
+- `raiseDispute` — reason tercatat on-chain di event `DisputeRaised`. **Guard on-chain** (revisi 2026-08-04, redenploy; sebelumnya "siapa pun tanpa syarat" + rate limit API saja):
+  - `researcherFlag` → caller wajib punya submission di bounty itu (`NotASubmitter`).
+  - `ownerSilence` → wajib ada submission pertama + window sudah lewat (`SilenceUnavailable` / `SilenceNotElapsed`).
+  - Kedua jalur: cooldown per address `raiseCooldown` (default 1 hari) → `RaiseCooldown`.
+  - Admin exempt (backend on-behalf flow tetap berfungsi).
+  - Gate API `POST /api/dispute/raise` tetap ada sebagai UX pre-check (friendly 429), tapi bukan enforcement — itu on-chain sekarang.
+- `openDispute` — hanya admin; menyalakan flag gating `inDispute` (dari ticket 02). `reason` untuk event; jalur owner-silence tetap digerbang timer di sini juga.
 - Bukti dispute (laporan, komunikasi) sepenuhnya off-chain; dApp yang meneruskannya ke admin.
+- Parameter waktu `silenceWindow` & `raiseCooldown` **admin-settable** (`setSilenceWindow` / `setRaiseCooldown`, event `SilenceWindowSet`/`RaiseCooldownSet`) — tuning tanpa redeploy.
+- Admin key bisa dirotasi via `transferAdmin(newAdmin)` (event `AdminTransferred`) — tanpa redeploy.
 
 ### Timer owner-silence
 
@@ -69,10 +76,10 @@ Risiko yang diterima: admin bisa membuat submission palsu lalu meng-*accept*-nya
 ### Perubahan permukaan kontrak (tambahan ke ticket 02)
 
 ```solidity
-event DisputeRaised(uint256 indexed bountyId, address indexed raiser);
+event DisputeRaised(uint256 indexed bountyId, address indexed raiser, DisputeReason reason);
 event DisputeOpened(uint256 indexed bountyId, address indexed admin, DisputeReason reason);
 event DisputeResolved(uint256 indexed bountyId, address indexed admin, Resolution resolution); // payout | refunded
 
 // Bounty: + bool disputeRequested; + bool inDispute (sudah di 02)
-// Konstanta: SILENCE_WINDOW (3 hari), disetel saat deploy
+// Konstanta: SILENCE_WINDOW (3 hari), RAISE_COOLDOWN (1 hari) — disetel saat deploy, admin-tunable
 ```

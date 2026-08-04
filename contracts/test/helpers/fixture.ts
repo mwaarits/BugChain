@@ -10,13 +10,15 @@ export interface Fixture {
   researcher2: Awaited<ReturnType<typeof ethers.getSigners>>[0];
   stranger: Awaited<ReturnType<typeof ethers.getSigners>>[0];
   silenceWindow: number;
+  raiseCooldown: number;
 }
 
-export async function deployFixture(defaults: { silenceWindow?: number } = {}): Promise<Fixture> {
+export async function deployFixture(defaults: { silenceWindow?: number; raiseCooldown?: number } = {}): Promise<Fixture> {
   const silenceWindow = defaults.silenceWindow ?? 3 * 86400;
+  const raiseCooldown = defaults.raiseCooldown ?? 86400;
   const [admin, business, researcher, researcher2, stranger] = await ethers.getSigners();
   const factory = await ethers.getContractFactory("BountyEscrow");
-  const escrow = await factory.deploy(silenceWindow);
+  const escrow = await factory.deploy(silenceWindow, raiseCooldown);
   await escrow.waitForDeployment();
-  return { escrow, admin, business, researcher, researcher2, stranger, silenceWindow };
+  return { escrow, admin, business, researcher, researcher2, stranger, silenceWindow, raiseCooldown };
 }

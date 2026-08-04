@@ -50,6 +50,7 @@ export function createIndexer({ db, chain }: { db: Db; chain: Chain }) {
         ${confirmedAt.toString()}
       )
       ON CONFLICT (bounty_id) DO UPDATE SET
+        scope_text = CASE WHEN bounties.scope_hash = EXCLUDED.scope_hash THEN bounties.scope_text ELSE NULL END,
         scope_hash = EXCLUDED.scope_hash,
         escrow_wei = EXCLUDED.escrow_wei,
         deadline = EXCLUDED.deadline,

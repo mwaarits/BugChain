@@ -69,14 +69,14 @@ describe("BountyEscrow — cancel, deadline & two-phase refund", () => {
   });
 
   it("a Researcher can raise a dispute inside the two-phase refund window", async () => {
-    const { escrow, business, researcher, stranger } = await deployFixture();
+    const { escrow, business, researcher } = await deployFixture();
     await escrow.connect(business).createBounty(hashOf("scope"), await future(), { value: 1n });
     await escrow.connect(researcher).submitSubmission(0, hashOf("r"));
     await escrow.connect(business).rejectSubmission(0, 0);
     await escrow.connect(business).requestRefund(0);
-    await expect(escrow.connect(stranger).raiseDispute(0))
+    await expect(escrow.connect(researcher).raiseDispute(0, 0))
       .to.emit(escrow, "DisputeRaised")
-      .withArgs(0n, stranger.address);
+      .withArgs(0n, researcher.address, 0n); // ResearcherFlag
     const flag = await escrow.disputeFlag(0);
     expect(flag[0]).to.equal(true); // disputeRequested
     expect(flag[1]).to.equal(false); // still not opened

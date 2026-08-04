@@ -35,8 +35,10 @@ contract BountyEscrow {
         Submission[] submissions;
     }
 
-    address public immutable admin;
-    uint256 public immutable silenceWindow;
+    address public admin;
+    uint256 public silenceWindow;
+    uint256 public raiseCooldown;
+    mapping(address => uint256) public lastRaiseAt;
 
     Bounty[] private allBounties;
 
@@ -56,9 +58,12 @@ contract BountyEscrow {
     event SubmissionJudged(uint256 indexed bountyId, uint256 indexed submissionId, bool accepted);
     event RefundRequested(uint256 indexed bountyId);
     event BountyClosed(uint256 indexed bountyId, CloseReason reason);
-    event DisputeRaised(uint256 indexed bountyId, address indexed raiser);
+    event DisputeRaised(uint256 indexed bountyId, address indexed raiser, DisputeReason reason);
     event DisputeOpened(uint256 indexed bountyId, address indexed admin, DisputeReason reason);
     event DisputeResolved(uint256 indexed bountyId, address indexed admin, Resolution resolution);
+    event AdminTransferred(address indexed previousAdmin, address indexed newAdmin);
+    event SilenceWindowSet(uint256 value);
+    event RaiseCooldownSet(uint256 value);
 
     error BountyNotFound();
     error ZeroValue();
@@ -76,11 +81,37 @@ contract BountyEscrow {
     error PendingSubmissions();
     error SilenceUnavailable();
     error SilenceNotElapsed();
+    error RaiseCooldown();
+    error NotASubmitter();
+    error ZeroAddress();
     error TransferFailed();
 
-    constructor(uint256 _silenceWindow) {
+    constructor(uint256 _silenceWindow, uint256 _raiseCooldown) {
         admin = msg.sender;
         silenceWindow = _silenceWindow;
+        raiseCooldown = _raiseCooldown;
+    }
+
+    /// @notice Rotate the Platform Admin address. One-step; the new admin takes over immediately.
+    function transferAdmin(address newAdmin) external {
+        if (msg.sender != admin) revert NotAdmin();
+        if (newAdmin == address(0)) revert ZeroAddress();
+        emit AdminTransferred(admin, newAdmin);
+        admin = newAdmin;
+    }
+
+    /// @notice Tune the owner-silence window without a redeploy. Admin only.
+    function setSilenceWindow(uint256 value) external {
+        if (msg.sender != admin) revert NotAdmin();
+        silenceWindow = value;
+        emit SilenceWindowSet(value);
+    }
+
+    /// @notice Tune the per-address dispute-raise cooldown without a redeploy. Admin only.
+    function setRaiseCooldown(uint256 value) external {
+        if (msg.sender != admin) revert NotAdmin();
+        raiseCooldown = value;
+        emit RaiseCooldownSet(value);
     }
 
     /// @notice Create and fund a Bounty. msg.value becomes the escrowed reward.
@@ -190,13 +221,25 @@ contract BountyEscrow {
         emit BountyClosed(bountyId, CloseReason.Refunded);
     }
 
-    /// @notice Anyone may flag a dispute cheaply: on-chain proof a protest existed before any refund.
-    function raiseDispute(uint256 bountyId) external {
+    /// @notice Raise a dispute with its reason. Non-admin raisers are guarded on-chain:
+    ///         ResearcherFlag requires a submission on the bounty; OwnerSilence requires the
+    ///         silence window to have elapsed; both paths share a per-address cooldown.
+    function raiseDispute(uint256 bountyId, DisputeReason reason) external {
         Bounty storage b = _requireBounty(bountyId);
         _requireEscrowHeld(b);
         if (b.inDispute) revert InDispute();
+        if (msg.sender != admin) {
+            if (block.timestamp < lastRaiseAt[msg.sender] + raiseCooldown) revert RaiseCooldown();
+            lastRaiseAt[msg.sender] = block.timestamp;
+            if (reason == DisputeReason.ResearcherFlag) {
+                if (!_hasSubmission(b, msg.sender)) revert NotASubmitter();
+            } else {
+                if (b.firstSubmissionTs == 0) revert SilenceUnavailable();
+                if (block.timestamp < b.firstSubmissionTs + silenceWindow) revert SilenceNotElapsed();
+            }
+        }
         b.disputeRequested = true;
-        emit DisputeRaised(bountyId, msg.sender);
+        emit DisputeRaised(bountyId, msg.sender, reason);
     }
 
     /// @notice Platform Admin opens the inDispute gate. Owner-silence is time-gated on-chain.
@@ -258,6 +301,13 @@ contract BountyEscrow {
     /// @notice Dispute machinery only applies while the escrow is still held by the contract.
     function _requireEscrowHeld(Bounty storage b) private view {
         if (b.state == BountyState.Closed) revert WrongBountyState(BountyState.Active);
+    }
+
+    function _hasSubmission(Bounty storage b, address who) private view returns (bool) {
+        for (uint256 i = 0; i < b.submissions.length; i++) {
+            if (b.submissions[i].submitter == who) return true;
+        }
+        return false;
     }
 
     function _requireBounty(uint256 bountyId) private view returns (Bounty storage) {

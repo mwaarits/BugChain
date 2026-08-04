@@ -10,6 +10,7 @@ const WS_URL = process.env.WS_URL;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 const ADMIN_PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+const ADMIN_OPERATOR = process.env.ADMIN_OPERATOR;
 const PORT = Number(process.env.PORT ?? 3000);
 
 async function main() {
@@ -20,12 +21,12 @@ async function main() {
   const chain = createChain({ rpcUrl: RPC_URL, wsUrl: WS_URL, contractAddress: CONTRACT_ADDRESS });
   const indexer = createIndexer({ db, chain });
   const admin = createAdmin({ privateKey: ADMIN_PRIVATE_KEY, rpcUrl: RPC_URL, chain });
-  const app = createApp({ db, chain, admin, indexer, adminToken: ADMIN_TOKEN });
+  const app = createApp({ db, chain, admin, indexer, adminToken: ADMIN_TOKEN, operator: ADMIN_OPERATOR });
 
   serve({ fetch: app.fetch, port: PORT });
   console.log(
     `backend on :${PORT}, contract ${CONTRACT_ADDRESS}` +
-      (ADMIN_TOKEN ? ", admin endpoints enabled" : ", WARNING: no ADMIN_TOKEN, admin endpoints disabled")
+      (ADMIN_OPERATOR ? `, operator auth enabled for ${ADMIN_OPERATOR}` : ADMIN_TOKEN ? ", legacy ADMIN_TOKEN admin enabled" : ", WARNING: no admin auth, admin endpoints disabled")
   );
 
   await indexer.syncSnapshot();

@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS bounties (
   block_confirmed bigint,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE bounties ADD COLUMN IF NOT EXISTS scope_text text;
 CREATE TABLE IF NOT EXISTS submissions (
   bounty_id int NOT NULL,
   submission_id int NOT NULL,

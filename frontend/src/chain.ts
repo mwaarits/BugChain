@@ -12,6 +12,11 @@ export const CONTRACT_ADDRESS = (
 export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 export const CONTRACT_ABI = artifact.abi;
 
+if (![677, 968].includes(CHAIN_ID)) throw new Error(`Unsupported BOT Chain ID: ${CHAIN_ID}`);
+if (!/^0x[0-9a-fA-F]{40}$/.test(CONTRACT_ADDRESS) || CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000") {
+  throw new Error("VITE_CONTRACT_ADDRESS must be a deployed contract address");
+}
+
 export const botChain: Chain = {
   id: CHAIN_ID,
   name: CHAIN_ID === 677 ? "BOT Chain Mainnet" : "BOT Chain Testnet",
@@ -20,7 +25,7 @@ export const botChain: Chain = {
   blockExplorers:
     CHAIN_ID === 677
       ? { default: { name: "BOT Scan", url: "https://scan.botchain.ai" } }
-      : undefined
+      : { default: { name: "BOT Testnet Scan", url: "https://scan.bohr.life" } }
 };
 
 export const config = createConfig({

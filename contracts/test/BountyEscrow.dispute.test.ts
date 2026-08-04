@@ -16,19 +16,47 @@ describe("BountyEscrow — dispute & owner-silence", () => {
 
   async function openedResearcherFlag() {
     const f = await withSubmission();
-    await f.escrow.connect(f.researcher).raiseDispute(0);
+    await f.escrow.connect(f.researcher).raiseDispute(0, 0); // ResearcherFlag
     await f.escrow.connect(f.admin).openDispute(0, 0); // ResearcherFlag
     return f;
   }
 
-  it("raiseDispute is callable by anyone and records proof on-chain", async () => {
-    const { escrow, stranger } = await withSubmission();
-    await expect(escrow.connect(stranger).raiseDispute(0))
+  it("raiseDispute ResearcherFlag requires a submission on the bounty", async () => {
+    const { escrow, stranger, researcher } = await withSubmission();
+    await expect(escrow.connect(stranger).raiseDispute(0, 0))
+      .to.be.revertedWithCustomError(escrow, "NotASubmitter");
+    await expect(escrow.connect(researcher).raiseDispute(0, 0))
       .to.emit(escrow, "DisputeRaised")
-      .withArgs(0n, stranger.address);
+      .withArgs(0n, researcher.address, 0n); // ResearcherFlag
     const flag = await escrow.disputeFlag(0);
     expect(flag[0]).to.equal(true); // disputeRequested
     expect(flag[1]).to.equal(false); // not opened
+  });
+
+  it("raiseDispute OwnerSilence requires the silence window to have elapsed", async () => {
+    const { escrow, stranger, silenceWindow } = await withSubmission();
+    await expect(escrow.connect(stranger).raiseDispute(0, 1))
+      .to.be.revertedWithCustomError(escrow, "SilenceNotElapsed"); // OwnerSilence too early
+    await time.increase(silenceWindow + 1);
+    await expect(escrow.connect(stranger).raiseDispute(0, 1))
+      .to.emit(escrow, "DisputeRaised")
+      .withArgs(0n, stranger.address, 1n); // OwnerSilence; a stranger may raise this path
+  });
+
+  it("OwnerSilence cannot be raised without any submission at all", async () => {
+    const { escrow, business } = await deployFixture({ silenceWindow: 60 });
+    await escrow.connect(business).createBounty(hashOf("scope"), await future(), { value: 1n });
+    await expect(escrow.connect(business).raiseDispute(0, 1)).to.be.revertedWithCustomError(escrow, "SilenceUnavailable");
+  });
+
+  it("raises are throttled per address by the cooldown; admin is exempt", async () => {
+    const { escrow, researcher, admin, raiseCooldown } = await withSubmission();
+    await escrow.connect(researcher).raiseDispute(0, 0);
+    await expect(escrow.connect(researcher).raiseDispute(0, 0)).to.be.revertedWithCustomError(escrow, "RaiseCooldown");
+    await time.increase(raiseCooldown + 1);
+    await expect(escrow.connect(researcher).raiseDispute(0, 0)).to.not.be.reverted;
+    // the admin (backend, on-behalf flow) is exempt from both guards
+    await escrow.connect(admin).raiseDispute(0, 0);
   });
 
   it("openDispute and closeDispute are admin-only", async () => {
@@ -40,7 +68,7 @@ describe("BountyEscrow — dispute & owner-silence", () => {
 
   it("owner-silence open reverts until the window from the first submission elapses", async () => {
     const { escrow, admin, silenceWindow, researcher } = await withSubmission();
-    await escrow.connect(researcher).raiseDispute(0);
+    await escrow.connect(researcher).raiseDispute(0, 0);
     await expect(escrow.connect(admin).openDispute(0, 1)).to.be.revertedWithCustomError(escrow, "SilenceNotElapsed"); // OwnerSilence
     await time.increase(silenceWindow + 1);
     await expect(escrow.connect(admin).openDispute(0, 1))
@@ -58,7 +86,7 @@ describe("BountyEscrow — dispute & owner-silence", () => {
   it("while inDispute the admin holds the judgment set and the business is locked out", async () => {
     const { escrow, admin, business, researcher, researcher2 } = await withSubmission();
     await escrow.connect(researcher2).submitSubmission(0, hashOf("second"));
-    await escrow.connect(researcher).raiseDispute(0);
+    await escrow.connect(researcher).raiseDispute(0, 0);
     await escrow.connect(admin).openDispute(0, 0);
     await expect(escrow.connect(researcher2).submitSubmission(0, hashOf("blocked"))).to.be.revertedWithCustomError(
       escrow,
@@ -94,7 +122,7 @@ describe("BountyEscrow — dispute & owner-silence", () => {
     await escrow.connect(researcher).submitSubmission(0, hashOf("r"));
     await escrow.connect(business).rejectSubmission(0, 0);
     await escrow.connect(business).requestRefund(0);
-    await escrow.connect(researcher).raiseDispute(0);
+    await escrow.connect(researcher).raiseDispute(0, 0);
     await escrow.connect(admin).openDispute(0, 0);
     await expect(() => escrow.connect(admin).confirmRefund(0)).to.changeEtherBalance(business, ethers.parseEther("4"));
     expect((await escrow.bountyOf(0)).state).to.equal(2n); // Closed

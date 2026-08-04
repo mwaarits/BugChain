@@ -5,6 +5,7 @@ export function mapBountyRow(row: any, confirmation: string): any {
   return {
     bountyId: row.bounty_id,
     scopeHash: row.scope_hash,
+    scope: row.scope_text ?? null,
     escrowWei: row.escrow_wei,
     deadline: Number(row.deadline),
     business: row.business,

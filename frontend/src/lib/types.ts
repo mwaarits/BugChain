@@ -1,6 +1,7 @@
 export interface BountyRow {
   bountyId: number;
   scopeHash: string;
+  scope: string | null;
   escrowWei: string;
   deadline: number;
   business: string;
@@ -19,6 +20,21 @@ export interface SubmissionRow {
   state: string;
   confirmation: string;
   report: { content: string; salt: string; signature: string; txHash: string | null } | null;
+}
+
+export interface SubmissionHistoryRow {
+  bountyId: number;
+  submissionId: number;
+  hash: string;
+  timestamp: number;
+  submissionState: string;
+  confirmation: string;
+  bountyState: string;
+  scope: string | null;
+  scopeHash: string;
+  escrowWei: string;
+  deadline: number;
+  business: string;
 }
 
 export type BadgeVariant = "default" | "secondary" | "destructive";

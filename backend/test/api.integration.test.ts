@@ -33,6 +33,7 @@ interface Ctx {
   db: Awaited<ReturnType<typeof createDb>>;
   indexer: ReturnType<typeof createIndexer>;
   app: ReturnType<typeof createApp>;
+  operatorApp: ReturnType<typeof createApp>;
   business: LocalAccount;
   researcher: LocalAccount;
   adminAccount: LocalAccount;
@@ -142,7 +143,7 @@ beforeAll(async () => {
   const deployHash = await deployWallet.deployContract({
     abi: artifact.abi,
     bytecode: artifact.bytecode as `0x${string}`,
-    args: [60]
+    args: [60, 86400]
   });
   const deployReceipt = await publicClient.waitForTransactionReceipt({ hash: deployHash });
   const contractAddress = deployReceipt.contractAddress!;
@@ -153,6 +154,7 @@ beforeAll(async () => {
   expect(await indexer.startLiveSync()).toBe(true);
   const admin = createAdmin({ privateKey: ADMIN_KEY, rpcUrl: RPC, chain });
   const app = createApp({ db, chain, admin, indexer, adminToken: ADMIN_TOKEN });
+  const operatorApp = createApp({ db, chain, admin, indexer, operator: adminAccount.address });
 
   ctx = {
     abi: artifact.abi,
@@ -161,6 +163,7 @@ beforeAll(async () => {
     db,
     indexer,
     app,
+    operatorApp,
     business: privateKeyToAccount(BUSINESS_KEY as `0x${string}`) as LocalAccount,
     researcher: privateKeyToAccount(RESEARCHER_KEY as `0x${string}`) as LocalAccount,
     adminAccount: adminAccount,
@@ -192,6 +195,19 @@ describe("Bug bounty backend — Seam 2 (real local EVM)", () => {
     expect(b.state).toBe("Active");
     expect(b.escrowWei).toBe("1000000000000000000");
     expect(b.business.toLowerCase()).toBe(ctx.business.address.toLowerCase());
+
+    const scopeSignature = await ctx.business.signMessage({ message: `Save scope for BugChain bounty #${b.bountyId}` });
+    const stored = await postApi(`/api/bounties/${b.bountyId}/scope`, { scope: "scope-a", signature: scopeSignature });
+    expect(stored.ok).toBe(true);
+    expect((await getApi(`/api/bounties/${b.bountyId}`)).scope).toBe("scope-a");
+    const rejected = await postApi(`/api/bounties/${b.bountyId}/scope`, { scope: "wrong scope", signature: scopeSignature });
+    expect(rejected.error).toContain("does not match");
+    // hash integrity is not write ownership: a non-business signature is refused
+    const foreign = await ctx.researcher.signMessage({ message: `Save scope for BugChain bounty #${b.bountyId}` });
+    const refused = await postApi(`/api/bounties/${b.bountyId}/scope`, { scope: "scope-a", signature: foreign });
+    expect(refused.error).toContain("business");
+    const unsigned = await postApi(`/api/bounties/${b.bountyId}/scope`, { scope: "scope-a" });
+    expect(unsigned.error).toBe("signature required");
   });
 
   it("submit → store report → read receipt that re-hashes and verifies authorship", async () => {
@@ -220,6 +236,17 @@ describe("Bug bounty backend — Seam 2 (real local EVM)", () => {
     expect(receipt.verified.hashMatches).toBe(true);
     expect(receipt.verified.signer.toLowerCase()).toBe(ctx.researcher.address.toLowerCase());
     expect(receipt.verified.signerIsSubmitter).toBe(true);
+
+    const history = await getApi(`/api/submissions?submitter=${ctx.researcher.address.toUpperCase()}`);
+    expect(history.total).toBe(1);
+    expect(history.submissions).toHaveLength(1);
+    expect(history.submissions[0]).toMatchObject({ bountyId: 0, submissionId: 0, submissionState: "Submitted", bountyState: "Active" });
+    expect(history.submissions[0].report).toBeUndefined();
+    expect((await getApi(`/api/submissions?submitter=${ctx.business.address}`)).submissions).toHaveLength(0);
+
+    const paged = await getApi(`/api/submissions?submitter=${ctx.researcher.address}&limit=1&offset=1`);
+    expect(paged.total).toBe(1);
+    expect(paged.submissions).toHaveLength(0);
   });
 
   it("forged content is rejected at the API (hash gate) and a wrong-key receipt fails authorship", async () => {
@@ -313,6 +340,14 @@ describe("Bug bounty backend — Seam 2 (real local EVM)", () => {
     expect(s.state).toBe(2); // Rejected from the chain
   });
 
+  it("clears legacy scope metadata if a reorg changes the onchain commitment", async () => {
+    await ctx.db.sql`UPDATE bounties SET scope_text = 'stale scope', scope_hash = '0xdead' WHERE bounty_id = 1`;
+    await ctx.indexer.rescanBounty(1n);
+    const [b] = await ctx.db.sql`SELECT scope_hash, scope_text FROM bounties WHERE bounty_id = 1`;
+    expect(b.scope_hash).not.toBe("0xdead");
+    expect(b.scope_text).toBeNull();
+  });
+
   it("pending → confirmed: the API flips a row to confirmed once blocks pass", async () => {
     const scope = keccak256(toBytes("scope-pending"));
     const tx = await write(ctx.business, "createBounty", [scope, DEADLINE()], 1n);
@@ -375,7 +410,7 @@ describe("Bug bounty backend — Seam 2 (real local EVM)", () => {
   });
 
   it("dispute: anyone flags, admin opens and closes the inDispute gate via the API", async () => {
-    const raised = await postAdmin("/api/admin/raise-dispute", { bountyId: 2 });
+    const raised = await postAdmin("/api/admin/raise-dispute", { bountyId: 2, reason: "researcherFlag" });
     await ctx.publicClient.waitForTransactionReceipt({ hash: raised.txHash });
     await postApi("/admin/sync");
     let d = await getApi("/api/bounties/2");
@@ -407,7 +442,7 @@ describe("Bug bounty backend — Seam 2 (real local EVM)", () => {
     const s = await write(ctx.researcher, "submitSubmission", [BigInt(bountyId), hash]);
     await ctx.publicClient.waitForTransactionReceipt({ hash: s });
 
-    const raised = await postAdmin("/api/admin/raise-dispute", { bountyId });
+    const raised = await postAdmin("/api/admin/raise-dispute", { bountyId, reason: "researcherFlag" });
     await ctx.publicClient.waitForTransactionReceipt({ hash: raised.txHash });
     const opened = await postAdmin("/api/admin/dispute/open", { bountyId, reason: "researcherFlag" });
     await ctx.publicClient.waitForTransactionReceipt({ hash: opened.txHash });
@@ -424,6 +459,40 @@ describe("Bug bounty backend — Seam 2 (real local EVM)", () => {
     expect(before - after).toBe(3_000_000_000_000_000_000n);
   });
 
+  it("rate limits dispute flag raises per wallet address", async () => {
+    const flagger = `0x${"ab".repeat(20)}`;
+    for (let i = 0; i < 5; i++) {
+      const res = await ctx.app.request("/api/dispute/raise", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ bountyId: 0, address: flagger })
+      });
+      expect(res.status).toBe(200);
+      expect((await res.json()).ok).toBe(true);
+    }
+    const blocked = await ctx.app.request("/api/dispute/raise", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ bountyId: 0, address: flagger })
+    });
+    expect(blocked.status).toBe(429);
+    expect((await blocked.json()).retryAfterSeconds).toBeGreaterThan(0);
+
+    const other = await ctx.app.request("/api/dispute/raise", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ bountyId: 0, address: `0x${"cd".repeat(20)}` })
+    });
+    expect(other.status).toBe(200);
+
+    const invalid = await ctx.app.request("/api/dispute/raise", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ bountyId: 0, address: "not-an-address" })
+    });
+    expect(invalid.status).toBe(400);
+  });
+
   it("admin endpoints reject requests without the bearer token", async () => {
     const noAuth = await postApi("/api/admin/raise-dispute", { bountyId: 2 });
     expect(noAuth.error).toBe("unauthorized");
@@ -437,5 +506,44 @@ describe("Bug bounty backend — Seam 2 (real local EVM)", () => {
       body: JSON.stringify({ bountyId: 2 })
     });
     expect((await res.json()).error).toBe("unauthorized");
+  });
+
+  it("operator flow: challenge → wallet signature → session token gates admin endpoints", async () => {
+    const json = async (r: Response) => r.json();
+    const post = (pathname: string, body: unknown, authorization?: string) =>
+      ctx.operatorApp.request(pathname, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...(authorization ? { authorization } : {}) },
+        body: JSON.stringify(body)
+      });
+
+    expect(await json(await ctx.operatorApp.request("/api/admin/auth/operator"))).toMatchObject({ address: ctx.adminAccount.address });
+
+    const wrong = await post("/api/admin/auth/challenge", { address: ctx.researcher.address });
+    expect(wrong.status).toBe(403);
+
+    const challenge = await post("/api/admin/auth/challenge", { address: ctx.adminAccount.address });
+    expect(challenge.status).toBe(200);
+    const { nonce } = await challenge.json();
+
+    const badSig = await post("/api/admin/auth/login", { address: ctx.adminAccount.address, nonce, signature: "0x" });
+    expect(badSig.status).toBe(401);
+
+    const signature = await ctx.adminAccount.signMessage({ message: nonce });
+    const login = await post("/api/admin/auth/login", { address: ctx.adminAccount.address, nonce, signature });
+    expect(login.status).toBe(200);
+    const { token, expiresAt } = await login.json();
+    expect(token).toBeTruthy();
+    expect(expiresAt).toBeGreaterThan(Date.now());
+
+    // a valid session passes auth (reaches request validation → 400, not 401)
+    const authed = await post("/api/admin/raise-dispute", { bountyId: 1 }, `Bearer ${token}`);
+    expect(authed.status).toBe(400);
+    const denied = await post("/api/admin/raise-dispute", { bountyId: 1 });
+    expect(denied.status).toBe(401);
+
+    // nonces are single-use: replaying the same signature is refused
+    const replay = await post("/api/admin/auth/login", { address: ctx.adminAccount.address, nonce, signature });
+    expect(replay.status).toBe(401);
   });
 });

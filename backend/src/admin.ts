@@ -21,13 +21,16 @@ export function createAdmin(opts: { privateKey: string; rpcUrl: string; chain: C
     account,
     openDispute: (bountyId: number, reason: number) => send(bountyId, "openDispute", [BigInt(bountyId), reason]),
     closeDispute: (bountyId: number) => send(bountyId, "closeDispute", [BigInt(bountyId)]),
-    raiseDispute: (bountyId: number) => send(bountyId, "raiseDispute", [BigInt(bountyId)]),
+    raiseDispute: (bountyId: number, reason: number) => send(bountyId, "raiseDispute", [BigInt(bountyId), reason]),
     acceptSubmission: (bountyId: number, submissionId: number) =>
       send(bountyId, "acceptSubmission", [BigInt(bountyId), BigInt(submissionId)]),
     rejectSubmission: (bountyId: number, submissionId: number) =>
       send(bountyId, "rejectSubmission", [BigInt(bountyId), BigInt(submissionId)]),
     markAllInvalid: (bountyId: number) => send(bountyId, "markAllInvalid", [BigInt(bountyId)]),
-    confirmRefund: (bountyId: number) => send(bountyId, "confirmRefund", [BigInt(bountyId)])
+    confirmRefund: (bountyId: number) => send(bountyId, "confirmRefund", [BigInt(bountyId)]),
+    transferAdmin: (newAdmin: string) => send(0, "transferAdmin", [newAdmin]),
+    setSilenceWindow: (value: number) => send(0, "setSilenceWindow", [BigInt(value)]),
+    setRaiseCooldown: (value: number) => send(0, "setRaiseCooldown", [BigInt(value)])
   };
 }
 
