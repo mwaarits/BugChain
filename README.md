@@ -1,4 +1,4 @@
-# GMTBuilder — Bug Bounty Platform on BOT Chain
+# BugChain — Bug Bounty Platform on BOT Chain
 
 Escrow-based bug bounties on BOT Chain (EVM): a Business funds a Bounty, Researchers submit hash-committed reports, the contract pays out or refunds, and a Platform Admin resolves disputes.
 
