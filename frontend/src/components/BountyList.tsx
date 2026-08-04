@@ -2,16 +2,11 @@ import { useState } from "react";
 import { formatEther } from "viem";
 import { useAccount } from "wagmi";
 import { shorten } from "../lib/utils";
+import { STATE_VARIANT } from "../lib/types";
 import type { BountyRow } from "../lib/types";
 import { Badge } from "./ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import BountyDetail from "./BountyDetail";
-
-const STATE_VARIANT: Record<string, "default" | "secondary" | "destructive"> = {
-  Active: "default",
-  RefundPending: "secondary",
-  Closed: "destructive"
-};
 
 export default function BountyList({ bounties, error }: { bounties: BountyRow[]; error: string }) {
   const { address } = useAccount();

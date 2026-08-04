@@ -352,9 +352,37 @@ describe("Bug bounty backend — Seam 2 (real local EVM)", () => {
     expect(d.inDispute).toBe(false);
   });
 
+  it("admin judgment during a dispute via the API: accept → Closed(paid), escrow drained", async () => {
+    const scope = keccak256(toBytes("scope-dispute-payout"));
+    const tx = await write(ctx.business, "createBounty", [scope, DEADLINE()], 3_000_000_000_000_000_000n);
+    await ctx.publicClient.waitForTransactionReceipt({ hash: tx });
+    const hash = submissionHash(3, "disputed report", randomSalt());
+    const s = await write(ctx.researcher, "submitSubmission", [3n, hash]);
+    await ctx.publicClient.waitForTransactionReceipt({ hash: s });
+
+    const raised = await postAdmin("/api/admin/raise-dispute", { bountyId: 3 });
+    await ctx.publicClient.waitForTransactionReceipt({ hash: raised.txHash });
+    const opened = await postAdmin("/api/admin/dispute/open", { bountyId: 3, reason: "researcherFlag" });
+    await ctx.publicClient.waitForTransactionReceipt({ hash: opened.txHash });
+
+    const before = await ctx.publicClient.getBalance({ address: ctx.contractAddress as `0x${string}` });
+    const accepted = await postAdmin("/api/admin/judge/accept", { bountyId: 3, submissionId: 0 });
+    await ctx.publicClient.waitForTransactionReceipt({ hash: accepted.txHash });
+    await postApi("/admin/sync");
+
+    const d = await getApi("/api/bounties/3");
+    expect(d.state).toBe("Closed");
+    expect(d.submissions[0].state).toBe("Accepted");
+    const after = await ctx.publicClient.getBalance({ address: ctx.contractAddress as `0x${string}` });
+    expect(before - after).toBe(3_000_000_000_000_000_000n);
+  });
+
   it("admin endpoints reject requests without the bearer token", async () => {
     const noAuth = await postApi("/api/admin/raise-dispute", { bountyId: 2 });
     expect(noAuth.error).toBe("unauthorized");
+
+    const judge = await postApi("/api/admin/judge/accept", { bountyId: 3, submissionId: 0 });
+    expect(judge.error).toBe("unauthorized");
 
     const res = await ctx.app.request("/api/admin/raise-dispute", {
       method: "POST",

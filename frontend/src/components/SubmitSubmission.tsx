@@ -1,16 +1,13 @@
 import { useState } from "react";
 import { useAccount, useReadContract, useSignMessage, useWriteContract } from "wagmi";
-import artifact from "../../../abis/BountyEscrow.json";
 import { randomSalt, submissionHash } from "@gmtbuilder/shared";
-import { API_URL, CONTRACT_ADDRESS } from "../chain";
+import { API_URL, CONTRACT_ADDRESS, CONTRACT_ABI } from "../chain";
 import { shorten } from "../lib/utils";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-
-const ABI = artifact.abi;
 
 interface Receipt {
   bountyId: string;
@@ -34,7 +31,7 @@ export default function SubmitSubmission() {
 
   const { data: count } = useReadContract({
     address: CONTRACT_ADDRESS,
-    abi: ABI,
+    abi: CONTRACT_ABI,
     functionName: "submissionCountOf",
     args: bountyId ? [BigInt(bountyId)] : undefined,
     query: { enabled: !!bountyId }
@@ -60,7 +57,7 @@ export default function SubmitSubmission() {
       const submissionId = Number(count);
       const txHash = await writeContractAsync({
         address: CONTRACT_ADDRESS,
-        abi: ABI,
+        abi: CONTRACT_ABI,
         functionName: "submitSubmission",
         args: [BigInt(id), hash]
       });

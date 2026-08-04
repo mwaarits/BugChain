@@ -1,6 +1,7 @@
 import { createConfig, http } from "wagmi";
 import { injected } from "wagmi/connectors";
 import type { Chain } from "viem";
+import artifact from "../../abis/BountyEscrow.json";
 
 export const CHAIN_ID = Number(import.meta.env.VITE_CHAIN_ID ?? 968);
 export const RPC_URL = import.meta.env.VITE_RPC_URL ?? "https://rpc.bohr.life";
@@ -9,6 +10,7 @@ export const CONTRACT_ADDRESS = (
   "0x0000000000000000000000000000000000000000"
 ) as `0x${string}`;
 export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+export const CONTRACT_ABI = artifact.abi;
 
 export const botChain: Chain = {
   id: CHAIN_ID,

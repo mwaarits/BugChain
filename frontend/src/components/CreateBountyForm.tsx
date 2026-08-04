@@ -1,16 +1,13 @@
 import { useState } from "react";
 import { keccak256, parseEther, toBytes } from "viem";
 import { useAccount, useWriteContract } from "wagmi";
-import artifact from "../../../abis/BountyEscrow.json";
-import { CONTRACT_ADDRESS } from "../chain";
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../chain";
 import { shorten } from "../lib/utils";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-
-const ABI = artifact.abi;
 
 export default function CreateBountyForm() {
   const { address } = useAccount();
@@ -34,7 +31,7 @@ export default function CreateBountyForm() {
     try {
       const tx = await writeContractAsync({
         address: CONTRACT_ADDRESS,
-        abi: ABI,
+        abi: CONTRACT_ABI,
         functionName: "createBounty",
         args: [keccak256(toBytes(scope)), BigInt(deadlineSec)],
         value: parseEther(amount)

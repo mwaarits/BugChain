@@ -117,6 +117,20 @@ export function createApp(opts: { db: Db; chain: Chain; admin: Admin; indexer: I
     return c.json({ txHash: await admin.closeDispute(bountyId) });
   });
 
+  const judge = (fn: (bountyId: number, submissionId: number) => Promise<unknown>, needsSubmission: boolean) =>
+    async (c: Context) => {
+      const denied = requireAdmin(c);
+      if (denied) return denied;
+      const { bountyId, submissionId } = await c.req.json();
+      if (needsSubmission && submissionId === undefined) return c.json({ error: "submissionId required" }, 400);
+      return c.json({ txHash: await fn(bountyId, submissionId ?? 0) });
+    };
+
+  app.post("/api/admin/judge/accept", judge(admin.acceptSubmission, true));
+  app.post("/api/admin/judge/reject", judge(admin.rejectSubmission, true));
+  app.post("/api/admin/judge/mark-all-invalid", judge(admin.markAllInvalid, false));
+  app.post("/api/admin/judge/confirm-refund", judge(admin.confirmRefund, false));
+
   return app;
 }
 

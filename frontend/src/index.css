@@ -76,9 +76,9 @@ body {
   font-family: "VT323", ui-monospace, monospace;
 }
 
-/* DESIGN.md label-md: Space Mono, 12px, letterspaced */
+/* DESIGN.md label-md: Space Mono, 12px, weight 600 */
 label {
   font-family: "Space Mono", ui-monospace, monospace;
   font-size: 0.75rem;
-  letter-spacing: 0.08em;
+  font-weight: 600;
 }

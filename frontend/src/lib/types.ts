@@ -20,3 +20,17 @@ export interface SubmissionRow {
   confirmation: string;
   report: { content: string; salt: string; signature: string; txHash: string | null } | null;
 }
+
+export type BadgeVariant = "default" | "secondary" | "destructive";
+
+export const STATE_VARIANT: Record<string, BadgeVariant> = {
+  Active: "default",
+  RefundPending: "secondary",
+  Closed: "destructive"
+};
+
+export const SUB_STATE_VARIANT: Record<string, BadgeVariant> = {
+  Submitted: "default",
+  Accepted: "secondary",
+  Rejected: "destructive"
+};

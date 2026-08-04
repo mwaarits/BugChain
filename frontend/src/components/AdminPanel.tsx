@@ -61,7 +61,7 @@ export default function AdminPanel({ bounties }: { bounties: BountyRow[] }) {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-medium">
                   #{b.bountyId} · {b.state}
-                  {b.inDispute ? " · inDispute" : b.disputeRequested ? " · dispute requested" : ""}
+                  {b.inDispute ? " · in dispute" : b.disputeRequested ? " · dispute requested" : ""}
                 </p>
                 <div className="flex gap-1">
                   {!b.inDispute && (
@@ -83,10 +83,10 @@ export default function AdminPanel({ bounties }: { bounties: BountyRow[] }) {
               </div>
               {b.inDispute && (
                 <p className="text-xs text-muted-foreground">
-                  Evidence + judgment below — admin wallet signs judgment tx directly; the business is locked out.
+                  Evidence + judgment below — the backend signs judgment tx with its admin key; the business is locked out.
                 </p>
               )}
-              {b.inDispute && <BountyDetail b={b} />}
+              {b.inDispute && <BountyDetail b={b} adminToken={token} />}
             </div>
           ))}
       </CardContent>
