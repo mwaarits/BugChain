@@ -9,9 +9,10 @@ export const CONTRACT_ADDRESS = (
   import.meta.env.VITE_CONTRACT_ADDRESS ??
   "0x0000000000000000000000000000000000000000"
 ) as `0x${string}`;
-export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+export const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:3000" : "");
 export const CONTRACT_ABI = artifact.abi;
 
+if (!API_URL) throw new Error("VITE_API_URL must be set in production builds — the backend is a separate host, not the frontend origin");
 if (![677, 968].includes(CHAIN_ID)) throw new Error(`Unsupported BOT Chain ID: ${CHAIN_ID}`);
 if (!/^0x[0-9a-fA-F]{40}$/.test(CONTRACT_ADDRESS) || CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000") {
   throw new Error("VITE_CONTRACT_ADDRESS must be a deployed contract address");
