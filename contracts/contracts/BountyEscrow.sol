@@ -193,7 +193,7 @@ contract BountyEscrow {
     /// @notice Anyone may flag a dispute cheaply: on-chain proof a protest existed before any refund.
     function raiseDispute(uint256 bountyId) external {
         Bounty storage b = _requireBounty(bountyId);
-        if (b.state == BountyState.Closed) revert WrongBountyState(BountyState.Active);
+        _requireEscrowHeld(b);
         if (b.inDispute) revert InDispute();
         b.disputeRequested = true;
         emit DisputeRaised(bountyId, msg.sender);
@@ -203,6 +203,7 @@ contract BountyEscrow {
     function openDispute(uint256 bountyId, DisputeReason reason) external {
         if (msg.sender != admin) revert NotAdmin();
         Bounty storage b = _requireBounty(bountyId);
+        _requireEscrowHeld(b);
         if (b.inDispute) revert InDispute();
         if (reason == DisputeReason.OwnerSilence) {
             if (b.firstSubmissionTs == 0) revert SilenceUnavailable();
@@ -252,6 +253,11 @@ contract BountyEscrow {
         } else {
             if (msg.sender != b.business) revert NotBusiness();
         }
+    }
+
+    /// @notice Dispute machinery only applies while the escrow is still held by the contract.
+    function _requireEscrowHeld(Bounty storage b) private view {
+        if (b.state == BountyState.Closed) revert WrongBountyState(BountyState.Active);
     }
 
     function _requireBounty(uint256 bountyId) private view returns (Bounty storage) {

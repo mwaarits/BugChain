@@ -2,7 +2,7 @@ import { PGlite } from "@electric-sql/pglite";
 import postgres from "postgres";
 
 export interface Db {
-  sql: any;
+  sql: (strings: TemplateStringsArray, ...params: any[]) => Promise<any[]>;
 }
 
 const SCHEMA = `
@@ -58,8 +58,7 @@ export async function createDb(): Promise<Db> {
   return {
     sql: async (strings: TemplateStringsArray, ...params: any[]) => {
       const out = await raw(strings, ...params);
-      if (Array.isArray(out)) return out;
-      return (out?.rows ?? []) as any[];
+      return (Array.isArray(out) ? out : (out?.rows ?? [])) as any[];
     }
   };
 }

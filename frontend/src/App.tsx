@@ -11,8 +11,8 @@ import {
   useWriteContract
 } from "wagmi";
 import artifact from "../../abis/BountyEscrow.json";
+import { randomSalt, submissionHash } from "@gmtbuilder/shared";
 import { API_URL, botChain, CONTRACT_ADDRESS } from "./chain";
-import { randomSalt, submissionHash } from "./lib/hash";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";

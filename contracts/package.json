@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
+    "build": "hardhat compile && node scripts/publish-abi.mjs",
     "compile": "hardhat compile",
     "node": "hardhat node",
     "test": "hardhat test",

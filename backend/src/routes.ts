@@ -1,29 +1,25 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { verifyReceipt, submissionHash } from "./hash";
 import type { Admin } from "./admin";
 import type { Chain } from "./chain";
 import type { Db } from "./db";
+import type { createIndexer } from "./indexer";
 import { mapBountyRow, mapSubmissionRow } from "./map";
 
-export function createApp(opts: { db: Db; chain: Chain; admin: Admin; indexer: any; adminToken?: string }) {
+type Indexer = ReturnType<typeof createIndexer>;
+
+const DISPUTE_REASON: Record<string, number> = { researcherFlag: 0, ownerSilence: 1 };
+
+export function createApp(opts: { db: Db; chain: Chain; admin: Admin; indexer: Indexer; adminToken?: string }) {
   const { db, chain, admin, indexer } = opts;
   const app = new Hono();
 
-  const requireAdmin = (c: any) => {
+  const requireAdmin = (c: Context) => {
     const token = opts.adminToken;
     if (!token) return c.json({ error: "admin endpoints disabled (no ADMIN_TOKEN set)" }, 503);
     if (c.req.header("authorization") !== `Bearer ${token}`) return c.json({ error: "unauthorized" }, 401);
     return null;
   };
-
-  const latest = async () => indexer.latestBlock();
-  const confirm = (block: unknown) => indexer.confirmationStatus(block ?? null, lastBlockCache);
-  let lastBlockCache: bigint = 0n;
-
-  app.use("*", async (_, next) => {
-    lastBlockCache = await latest();
-    await next();
-  });
 
   app.onError((err, c) => {
     console.error("route error:", err);
@@ -35,6 +31,8 @@ export function createApp(opts: { db: Db; chain: Chain; admin: Admin; indexer: a
   app.post("/admin/sync", async (c) => c.json(await indexer.syncSnapshot()));
 
   app.get("/api/bounties", async (c) => {
+    const latest = await indexer.latestBlock();
+    const confirm = (block: bigint | string | null | undefined) => indexer.confirmationStatus(block ?? null, latest);
     const rows: any[] = await db.sql`SELECT * FROM bounties ORDER BY bounty_id`;
     const bounties = rows.map((r) => mapBountyRow(r, confirm(r.block_confirmed)));
     return c.json({ bounties });
@@ -44,6 +42,8 @@ export function createApp(opts: { db: Db; chain: Chain; admin: Admin; indexer: a
     const id = Number(c.req.param("id"));
     const [row]: any[] = await db.sql`SELECT * FROM bounties WHERE bounty_id = ${id}`;
     if (!row) return c.json({ error: "bounty not found" }, 404);
+    const latest = await indexer.latestBlock();
+    const confirm = (block: bigint | string | null | undefined) => indexer.confirmationStatus(block ?? null, latest);
     const submissions: any[] = await db.sql`SELECT * FROM submissions WHERE bounty_id = ${id} ORDER BY submission_id`;
     const reports: any[] = await db.sql`SELECT * FROM submission_reports WHERE bounty_id = ${id}`;
     const reportBy = new Map(reports.map((r) => [r.submission_id, r]));
@@ -59,7 +59,7 @@ export function createApp(opts: { db: Db; chain: Chain; admin: Admin; indexer: a
     const [report]: any[] = await db.sql`SELECT * FROM submission_reports WHERE bounty_id = ${id} AND submission_id = ${sid}`;
     if (!report) return c.json({ error: "receipt not found" }, 404);
     const [sub]: any[] = await db.sql`SELECT * FROM submissions WHERE bounty_id = ${id} AND submission_id = ${sid}`;
-    const verified = await verifyReceipt(chain.publicClient, {
+    const verified = await verifyReceipt({
       bountyId: String(id),
       hash: sub?.hash ?? "",
       content: report.content,
@@ -105,7 +105,8 @@ export function createApp(opts: { db: Db; chain: Chain; admin: Admin; indexer: a
     const denied = requireAdmin(c);
     if (denied) return denied;
     const { bountyId, reason } = await c.req.json();
-    const reasonIndex = reason === "ownerSilence" ? 1 : 0;
+    const reasonIndex = DISPUTE_REASON[reason as string];
+    if (reasonIndex === undefined) return c.json({ error: `unknown dispute reason: ${reason}` }, 400);
     return c.json({ txHash: await admin.openDispute(bountyId, reasonIndex) });
   });
 

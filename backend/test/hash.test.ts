@@ -68,8 +68,7 @@ describe("receipt regeneration (ticket 06)", () => {
     const hash = submissionHash(5, "the report body", salt("34"));
     const signature = await sign(hash);
     const result = await verifyReceipt(
-      undefined,
-      { bountyId: "5", submissionId: "0", hash, content: "the report body", salt: salt("34"), signature },
+      { bountyId: "5", hash, content: "the report body", salt: salt("34"), signature },
       account.address
     );
     expect(result.hashMatches).toBe(true);
@@ -80,9 +79,8 @@ describe("receipt regeneration (ticket 06)", () => {
   it("a receipt whose content diverges from the on-chain hash fails verification", async () => {
     const hash = submissionHash(5, "the report", salt("34"));
     const signature = await sign(hash);
-    const result = await verifyReceipt(undefined, {
+    const result = await verifyReceipt({
       bountyId: "5",
-      submissionId: "0",
       hash,
       content: "a different body",
       salt: salt("34"),
