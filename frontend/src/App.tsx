@@ -10,6 +10,7 @@ import AdminPanel from "./components/AdminPanel";
 import BountyList from "./components/BountyList";
 import CreateBountyForm from "./components/CreateBountyForm";
 import SubmitSubmission from "./components/SubmitSubmission";
+import HomePage from "./components/HomePage";
 
 function useBounties() {
   const [bounties, setBounties] = useState<BountyRow[]>([]);
@@ -73,16 +74,14 @@ function WalletStatus() {
   );
 }
 
-export default function App() {
+function Dashboard() {
   const { isConnected } = useAccount();
   const { bounties, error } = useBounties();
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6">
+    <div className="mx-auto max-w-3xl space-y-6 p-6 sm:py-10">
       <header className="flex items-center justify-between border-b border-border/60 pb-4">
         <div>
-          <h1 className="font-display text-2xl font-bold tracking-wide">
-            BUG BOUNTY<span className="text-primary">:</span> BOT CHAIN
-          </h1>
+          <a href="/" className="font-display text-2xl font-bold tracking-[0.12em]">NEXUS<span className="text-primary">:</span> APP</a>
           <p className="mt-1 text-xs text-muted-foreground">
             {botChain.name} · {botChain.id} · {shorten(CONTRACT_ADDRESS)}
           </p>
@@ -105,4 +104,22 @@ export default function App() {
       )}
     </div>
   );
+}
+
+export default function App() {
+  const [showApp, setShowApp] = useState(() => window.location.pathname === "/app");
+
+  function openApp() {
+    window.history.pushState({}, "", "/app");
+    setShowApp(true);
+    window.scrollTo({ top: 0 });
+  }
+
+  useEffect(() => {
+    const navigate = () => setShowApp(window.location.pathname === "/app");
+    window.addEventListener("popstate", navigate);
+    return () => window.removeEventListener("popstate", navigate);
+  }, []);
+
+  return showApp ? <Dashboard /> : <HomePage openApp={openApp} />;
 }
