@@ -104,12 +104,25 @@ describe("BountyEscrow — dispute & owner-silence", () => {
 
   it("closeDispute restores the prior state with the standing judgment intact", async () => {
     const { escrow, admin, business } = await openedResearcherFlag();
-    await expect(escrow.connect(admin).closeDispute(0)).to.changeEtherBalance(business, 0n);
+    await expect(escrow.connect(admin).closeDispute(0))
+      .to.emit(escrow, "DisputeResolved")
+      .withArgs(0n, admin.address, 2n); // Resolution Dismissed
     const b = await escrow.bountyOf(0);
     expect(b.state).to.equal(0n); // back to Active
     expect(b.inDispute).to.equal(false);
     expect((await escrow.submissionAt(0, 0)).state).to.equal(0n); // standing Submitted judgment intact
     await expect(escrow.connect(admin).closeDispute(0)).to.be.revertedWithCustomError(escrow, "NotInDispute");
+  });
+
+  it("business cannot cancel a zero-submission bounty while a dispute is open", async () => {
+    const { escrow, admin, business } = await deployFixture({ silenceWindow: 60 });
+    await escrow.connect(business).createBounty(hashOf("scope"), await future(), { value: ethers.parseEther("4") });
+    await escrow.connect(admin).openDispute(0, 0); // ResearcherFlag needs no submissions
+    await expect(escrow.connect(business).cancelBounty(0)).to.be.revertedWithCustomError(escrow, "InDispute");
+    expect(await ethers.provider.getBalance(await escrow.getAddress())).to.equal(ethers.parseEther("4"));
+    // the admin can still dismiss, then the business may cancel
+    await escrow.connect(admin).closeDispute(0);
+    await expect(escrow.connect(business).cancelBounty(0)).to.changeEtherBalance(business, ethers.parseEther("4"));
   });
 
   it("an unfounded dispute does not block the bounty: business resumes judging after dismissal", async () => {

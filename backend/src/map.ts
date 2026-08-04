@@ -5,7 +5,7 @@ export function mapBountyRow(row: any, confirmation: string): any {
   return {
     bountyId: row.bounty_id,
     scopeHash: row.scope_hash,
-    rewardWei: row.reward_wei,
+    escrowWei: row.escrow_wei,
     deadline: Number(row.deadline),
     business: row.business,
     state: BOUNTY_STATES[row.state],

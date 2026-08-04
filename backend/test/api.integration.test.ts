@@ -177,7 +177,7 @@ describe("Bug bounty backend — Seam 2 (real local EVM)", () => {
     const b = bounties.find((x: any) => x.scopeHash === scope);
     expect(b).toBeTruthy();
     expect(b.state).toBe("Active");
-    expect(b.rewardWei).toBe("1000000000000000000");
+    expect(b.escrowWei).toBe("1000000000000000000");
     expect(b.business.toLowerCase()).toBe(ctx.business.address.toLowerCase());
   });
 
@@ -309,9 +309,27 @@ describe("Bug bounty backend — Seam 2 (real local EVM)", () => {
     const pending = await getApi("/api/bounties/" + "2");
     expect(pending.confirmation).toBe("pending");
 
+    // submissions carry their own watermark: bounty 0's submission was synced before mining
+    const beforeMine = await getApi("/api/bounties/0");
+    expect(beforeMine.submissions[0].confirmation).toBe("pending");
+
     await mine(10);
     const confirmed = await getApi("/api/bounties/" + "2");
     expect(confirmed.confirmation).toBe("confirmed");
+    const afterMine = await getApi("/api/bounties/0");
+    expect(afterMine.submissions[0].confirmation).toBe("confirmed");
+  });
+
+  it("ghost rows self-heal: a reorg that shrinks bountyCount cannot leave stale rows", async () => {
+    await ctx.db.sql`INSERT INTO bounties (bounty_id, scope_hash, escrow_wei, deadline, business, state, in_dispute, dispute_requested)
+      VALUES (99, '0xdead', '1', 9999999999, '0x0000000000000000000000000000000000000000', 0, false, false)`;
+    await ctx.db.sql`INSERT INTO submissions (bounty_id, submission_id, hash, submitter, ts, state)
+      VALUES (99, 0, '0xdead', '0x0000000000000000000000000000000000000000', 1, 0)`;
+    await postApi("/admin/sync");
+    const ghost = await ctx.db.sql`SELECT COUNT(*)::int AS n FROM bounties WHERE bounty_id = 99`;
+    const ghostSub = await ctx.db.sql`SELECT COUNT(*)::int AS n FROM submissions WHERE bounty_id = 99`;
+    expect(ghost[0].n).toBe(0);
+    expect(ghostSub[0].n).toBe(0);
   });
 
   it("dispute: anyone flags, admin opens and closes the inDispute gate via the API", async () => {

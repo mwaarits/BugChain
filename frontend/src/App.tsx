@@ -25,7 +25,7 @@ const ABI = artifact.abi;
 interface BountyRow {
   bountyId: number;
   scopeHash: string;
-  rewardWei: string;
+  escrowWei: string;
   deadline: number;
   business: string;
   state: string;
@@ -61,7 +61,7 @@ export default function App() {
       {isConnected ? (
         <>
           <CreateBountyForm />
-          <SubmitReport />
+          <SubmitSubmission />
           <BountyList bounties={bounties} error={error} />
           <AdminPanel bounties={bounties} />
         </>
@@ -153,7 +153,7 @@ function CreateBountyForm() {
     setDone("");
     const deadlineSec = Math.floor(new Date(deadline).getTime() / 1000);
     if (!scope || !deadline || !amount || Number.isNaN(deadlineSec)) {
-      setError("Fill scope, deadline, and reward.");
+      setError("Fill scope, deadline, and escrow.");
       return;
     }
     setBusy(true);
@@ -198,7 +198,7 @@ function CreateBountyForm() {
             <Input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label>Reward (BOT)</Label>
+            <Label>Escrow (BOT)</Label>
             <Input type="number" min="0" step="0.01" placeholder="0.5" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </div>
         </div>
@@ -222,7 +222,7 @@ interface Receipt {
   hash: string;
 }
 
-function SubmitReport() {
+function SubmitSubmission() {
   const { address } = useAccount();
   const { writeContractAsync } = useWriteContract();
   const { signMessageAsync } = useSignMessage();
@@ -292,7 +292,7 @@ function SubmitReport() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Submit a Report (Researcher)</CardTitle>
+        <CardTitle>Submit a Submission (Researcher)</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-1">
@@ -349,7 +349,7 @@ function BountyList({ bounties, error }: { bounties: BountyRow[]; error: string 
           <div key={b.bountyId} className="flex items-center justify-between rounded-md border p-3">
             <div>
               <p className="text-sm font-medium">
-                #{b.bountyId} · {formatEther(BigInt(b.rewardWei))} BOT
+                #{b.bountyId} · {formatEther(BigInt(b.escrowWei))} BOT
               </p>
               <p className="text-xs text-muted-foreground">
                 deadline {new Date(b.deadline * 1000).toLocaleString()} · {shorten(b.business)}

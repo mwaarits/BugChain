@@ -55,7 +55,7 @@ A web dApp built for BOT Chain where a **Business** creates a **Bounty** that es
 
 - **One contract, many bounties.** A single `BountyEscrow` contract (deployed once via Remix, reused by all Businesses) manages bounty-id-keyed bounties. No per-bounty deploy.
 - **Roles.** `Business` — the creator of a bounty, may touch its own funds. `Platform Admin` — a fixed deploy-time address that touches funds *only* while a bounty is `inDispute`. `Researcher` — anyone, via `submitSubmission` only.
-- **State model** (`Bounty`: `scopeHash`, `reward`=msg.value, `deadline`, `business`, `submissionCount`, `state` Active|RefundPending|Closed, `inDispute`, `disputeRequested`; `Submission`: `hash`, `submitter`, `timestamp`, `state` Submitted|Accepted|Rejected).
+- **State model** (`Bounty`: `scopeHash`, `escrow`=msg.value, `deadline`, `business`, `submissionCount`, `state` Active|RefundPending|Closed, `inDispute`, `disputeRequested`; `Submission`: `hash`, `submitter`, `timestamp`, `state` Submitted|Accepted|Rejected).
 - **Function surface** (from ticket 02): `createBounty(scopeHash, deadline) payable → bountyId`; `submitSubmission(bountyId, hash)`; `acceptSubmission(bountyId, submissionId)` (Business, or Admin while inDispute) → payout once → `Closed(paid)`; `rejectSubmission`; `markAllInvalid`; `cancelBounty` (only while `submissionCount == 0`) → immediate refund → `Closed(cancelled)`; two-phase refund `requestRefund` → `confirmRefund` (window for a dispute), plus `bountyCount`, `bountyOf`, `submissionCountOf`, `submissionAt`, `disputeFlag` read helpers.
 - **Bounty state machine**: submissions only pre-deadline, only while `Active` and not `inDispute`. `acceptSubmission` → `Closed(paid)`. All Rejected → `requestRefund` → `RefundPending` → `confirmRefund` → `Closed(refunded)`. Zero submissions → `cancelBounty` → `Closed(cancelled)`. Deadline only cuts submissions and legalizes zero-submission cancel.
 - **Events** are the full set for indexing: `BountyCreated`, `SubmissionSubmitted`, `SubmissionJudged`, `RefundRequested`, `BountyClosed(bountyId, Reason)` (single close reason: cancel|paid|refunded), `DisputeRaised`, `DisputeOpened`, `DisputeResolved`. Submissions timestamps come from the block header/receipt (not re-emitted).
@@ -78,7 +78,7 @@ hash = keccak256(abi.encodePacked(uint8(1) /* schema version */, uint256 bountyI
 
 - Content hashed **app-side before the tx**; the contract only ever sees the `bytes32`.
 - `salt` = 32 random bytes generated app-side at draft time; `bountyId` is bound into the hash so a report is committed to exactly one bounty.
-- **Normalization rules** (must be reproduced exactly, reuse-tested): UTF-8 encode, LF line endings, trailing whitespace stripped per line, single trailing newline removed.
+- **Normalization rules** (must be reproduced exactly, reuse-tested): UTF-8 encode, LF line endings, trailing whitespace stripped per line, trailing newlines removed (all of them — stricter than a single trailing newline, and pinned by test vectors so both sides agree).
 - **Authorship**: the Researcher `signMessage(hash)` at submit; `(content, salt, signature)` stored off-chain keyed by on-chain `submissionId`. Keccak proves knowledge of the preimage; the signature binds the submitter address.
 - **Researcher receipt** = `(bountyId, submissionId, hash, content, salt, signature, txHash)` downloadable, so the salt (client-only security) is backed up outside the server.
 

@@ -13,7 +13,7 @@ describe("BountyEscrow — creation", () => {
     expect(await escrow.bountyCount()).to.equal(2n);
   });
 
-  it("holds the funded reward in escrow and records scope + deadline + business", async () => {
+  it("holds the funded escrow and records scope + deadline + business", async () => {
     const { escrow, business } = await deployFixture();
     const addr = await escrow.getAddress();
     const balanceBefore = await ethers.provider.getBalance(addr);
@@ -24,7 +24,7 @@ describe("BountyEscrow — creation", () => {
     const b = await escrow.bountyOf(0);
     expect(b.business).to.equal(business.address);
     expect(b.scopeHash).to.equal(scope);
-    expect(b.reward).to.equal(ethers.parseEther("5"));
+    expect(b.escrow).to.equal(ethers.parseEther("5"));
     expect(ethers.toNumber(b.deadline)).to.equal(deadline);
     expect(b.state).to.equal(0n); // Active
   });
@@ -39,7 +39,7 @@ describe("BountyEscrow — creation", () => {
     await expect(escrow.connect(business).createBounty(ethers.ZeroHash, 1, { value: 1n })).to.be.revertedWithCustomError(escrow, "DeadlineInPast");
   });
 
-  it("emits BountyCreated with business, scope, reward, deadline", async () => {
+  it("emits BountyCreated with business, scope, escrow, deadline", async () => {
     const { escrow, business } = await deployFixture();
     const deadline = await future();
     const scope = ethers.keccak256(ethers.toUtf8Bytes("s"));

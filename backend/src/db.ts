@@ -9,7 +9,7 @@ const SCHEMA = `
 CREATE TABLE IF NOT EXISTS bounties (
   bounty_id int PRIMARY KEY,
   scope_hash text NOT NULL,
-  reward_wei text NOT NULL,
+  escrow_wei text NOT NULL,
   deadline bigint NOT NULL,
   business text NOT NULL,
   state int NOT NULL,
@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS submissions (
   submitter text NOT NULL,
   ts bigint NOT NULL,
   state int NOT NULL,
+  block_confirmed bigint,
   PRIMARY KEY (bounty_id, submission_id)
 );
 CREATE TABLE IF NOT EXISTS submission_reports (

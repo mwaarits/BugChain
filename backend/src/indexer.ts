@@ -19,6 +19,9 @@ export function createIndexer({ db, chain }: { db: Db; chain: Chain }) {
     for (let id = 0; id < count; id++) {
       nSub += await upsertBounty(BigInt(id), observedAt);
     }
+    // self-heal: a reorg that shrinks bountyCount would otherwise leave ghost rows readable
+    await db.sql`DELETE FROM submissions WHERE bounty_id >= ${count}`;
+    await db.sql`DELETE FROM bounties WHERE bounty_id >= ${count}`;
     await db.sql`
       INSERT INTO sync_state (key, value) VALUES ('last_block', ${observedAt.toString()})
       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
@@ -30,17 +33,17 @@ export function createIndexer({ db, chain }: { db: Db; chain: Chain }) {
     const b = await readBounty(chain, bountyId);
     await db.sql`
       INSERT INTO bounties (
-        bounty_id, scope_hash, reward_wei, deadline, business, state,
+        bounty_id, scope_hash, escrow_wei, deadline, business, state,
         in_dispute, dispute_requested, first_submission_ts, block_confirmed
       ) VALUES (
-        ${Number(bountyId)}, ${b.scopeHash}, ${b.reward.toString()}, ${Number(b.deadline)},
+        ${Number(bountyId)}, ${b.scopeHash}, ${b.escrow.toString()}, ${Number(b.deadline)},
         ${b.business.toLowerCase()}, ${Number(b.state)}, ${b.inDispute},
         ${b.disputeRequested}, ${b.firstSubmissionTs === 0n ? null : Number(b.firstSubmissionTs)},
         ${confirmedAt.toString()}
       )
       ON CONFLICT (bounty_id) DO UPDATE SET
         scope_hash = EXCLUDED.scope_hash,
-        reward_wei = EXCLUDED.reward_wei,
+        escrow_wei = EXCLUDED.escrow_wei,
         deadline = EXCLUDED.deadline,
         business = EXCLUDED.business,
         state = EXCLUDED.state,
@@ -58,11 +61,11 @@ export function createIndexer({ db, chain }: { db: Db; chain: Chain }) {
     for (let i = 0; i < n; i++) {
       const s = await readSubmission(chain, bountyId, BigInt(i));
       await db.sql`
-        INSERT INTO submissions (bounty_id, submission_id, hash, submitter, ts, state)
-        VALUES (${Number(bountyId)}, ${i}, ${s.hash}, ${s.submitter.toLowerCase()}, ${Number(s.timestamp)}, ${Number(s.state)})
+        INSERT INTO submissions (bounty_id, submission_id, hash, submitter, ts, state, block_confirmed)
+        VALUES (${Number(bountyId)}, ${i}, ${s.hash}, ${s.submitter.toLowerCase()}, ${Number(s.timestamp)}, ${Number(s.state)}, ${confirmedAt.toString()})
         ON CONFLICT (bounty_id, submission_id) DO UPDATE SET
           hash = EXCLUDED.hash, submitter = EXCLUDED.submitter,
-          ts = EXCLUDED.ts, state = EXCLUDED.state
+          ts = EXCLUDED.ts, state = EXCLUDED.state, block_confirmed = EXCLUDED.block_confirmed
       `;
       changed++;
     }

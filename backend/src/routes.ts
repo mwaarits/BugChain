@@ -49,7 +49,7 @@ export function createApp(opts: { db: Db; chain: Chain; admin: Admin; indexer: a
     const reportBy = new Map(reports.map((r) => [r.submission_id, r]));
     return c.json({
       ...mapBountyRow(row, confirm(row.block_confirmed)),
-      submissions: submissions.map((s) => mapSubmissionRow(s, reportBy.get(s.submission_id) ?? null, confirm(row.block_confirmed)))
+      submissions: submissions.map((s) => mapSubmissionRow(s, reportBy.get(s.submission_id) ?? null, confirm(s.block_confirmed)))
     });
   });
 

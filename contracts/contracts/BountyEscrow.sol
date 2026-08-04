@@ -14,7 +14,7 @@ contract BountyEscrow {
     enum CloseReason { Cancel, Paid, Refunded }
     enum SubmissionState { Submitted, Accepted, Rejected }
     enum DisputeReason { ResearcherFlag, OwnerSilence }
-    enum Resolution { Payout, Refunded }
+    enum Resolution { Payout, Refunded, Dismissed }
 
     struct Submission {
         bytes32 hash;
@@ -25,7 +25,7 @@ contract BountyEscrow {
 
     struct Bounty {
         bytes32 scopeHash;
-        uint256 reward;
+        uint256 escrow;
         uint256 deadline;
         address business;
         BountyState state;
@@ -44,7 +44,7 @@ contract BountyEscrow {
         uint256 indexed bountyId,
         address indexed business,
         bytes32 scopeHash,
-        uint256 reward,
+        uint256 escrow,
         uint256 deadline
     );
     event SubmissionSubmitted(
@@ -90,7 +90,7 @@ contract BountyEscrow {
         allBounties.push();
         Bounty storage b = allBounties[allBounties.length - 1];
         b.scopeHash = scopeHash;
-        b.reward = msg.value;
+        b.escrow = msg.value;
         b.deadline = deadline;
         b.business = msg.sender;
         bountyId = allBounties.length - 1;
@@ -153,9 +153,11 @@ contract BountyEscrow {
     }
 
     /// @notice Cancel a Bounty that has zero submissions; escrow returns immediately.
+    ///         Locked out while a dispute is open — only the Platform Admin moves funds then.
     function cancelBounty(uint256 bountyId) external {
         Bounty storage b = _requireBounty(bountyId);
         if (msg.sender != b.business) revert NotBusiness();
+        if (b.inDispute) revert InDispute();
         if (b.submissions.length > 0) revert HasSubmissions();
         if (b.state != BountyState.Active) revert WrongBountyState(BountyState.Active);
         b.state = BountyState.Closed;
@@ -216,6 +218,7 @@ contract BountyEscrow {
         Bounty storage b = _requireBounty(bountyId);
         if (!b.inDispute) revert NotInDispute();
         b.inDispute = false;
+        emit DisputeResolved(bountyId, msg.sender, Resolution.Dismissed);
     }
 
     // ---------- read surface (task 04) ----------
@@ -264,7 +267,7 @@ contract BountyEscrow {
     }
 
     function _pay(Bounty storage b, address payee) private {
-        (bool ok, ) = payee.call{ value: b.reward }("");
+        (bool ok, ) = payee.call{ value: b.escrow }("");
         if (!ok) revert TransferFailed();
     }
 }

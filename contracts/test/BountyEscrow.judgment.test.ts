@@ -14,7 +14,7 @@ describe("BountyEscrow — business judgment & payout", () => {
     return f;
   }
 
-  it("accept pays the exact reward to the researcher and closes paid", async () => {
+  it("accept pays the exact escrow to the researcher and closes paid", async () => {
     const { escrow, business, researcher } = await withSubmission();
     const escrowBefore = await ethers.provider.getBalance(await escrow.getAddress());
     const researcherBefore = await ethers.provider.getBalance(researcher.address);

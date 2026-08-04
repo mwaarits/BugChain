@@ -32,6 +32,9 @@ _Avoid_: Report, claim, ticket
 `submitted` (awaiting judgment) → `accepted` (valid, triggers payout) or `rejected` (invalid). Only the Business — or the Platform Admin in a dispute — can move a submission between states.
 _Avoid_: Open, closed, status
 
+**Bounty states**:
+`Active` → `RefundPending` → `Closed` (terminal after payout, refund, or zero-submission cancel). The Submission-states avoid list is scoped to submissions only; `Closed` is the Bounty terminal state and stays in use (as in `BountyClosed`, `CloseReason`).
+
 **Deadline**:
 The time after which a bounty with zero submissions can be refunded by the contract automatically.
 _Avoid_: Expiry, end date
