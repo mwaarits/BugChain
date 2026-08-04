@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { cors } from "hono/cors";
 import { verifyReceipt, submissionHash } from "./hash";
 import type { Admin } from "./admin";
 import type { Chain } from "./chain";
@@ -13,6 +14,8 @@ const DISPUTE_REASON: Record<string, number> = { researcherFlag: 0, ownerSilence
 export function createApp(opts: { db: Db; chain: Chain; admin: Admin; indexer: Indexer; adminToken?: string }) {
   const { db, chain, admin, indexer } = opts;
   const app = new Hono();
+
+  app.use("/api/*", cors());
 
   const requireAdmin = (c: Context) => {
     const token = opts.adminToken;

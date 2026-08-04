@@ -36,6 +36,8 @@ Backend (`backend/.env`):
 
 ```
 RPC_URL=https://rpc.bohr.life
+# Optional: a WebSocket RPC supplied by your provider. Public wss://rpc.bohr.life returns HTTP 405.
+WS_URL=
 CONTRACT_ADDRESS=<deployed address>
 ADMIN_PRIVATE_KEY=<admin key, in a secret manager — never in git>
 ADMIN_TOKEN=<long random string>
@@ -63,7 +65,7 @@ No code or ABI changes — `abis/BountyEscrow.json` already matches (verify byte
 
 ## 6. Indexer on real testnet
 
-- `eth_getLogs` support is uncertain on BOT Chain — the indexer is designed on snapshot reads and does not depend on it. If you want the WebSocket live feed (ticket 10) working, probe `eth_subscribe` on `wss://rpc.bohr.life` and note the result here; otherwise the 10s snapshot poll is the live feed.
+- `eth_getLogs` works on `https://rpc.bohr.life` (probed 2026-08-04). The public `wss://rpc.bohr.life` endpoint rejects the WebSocket handshake with HTTP 405, so leave `WS_URL` empty unless another provider supplies a WebSocket RPC. With `WS_URL`, startup probes logs then subscribes; otherwise the 10s snapshot reconcile remains active.
 
 ## 7. Record
 

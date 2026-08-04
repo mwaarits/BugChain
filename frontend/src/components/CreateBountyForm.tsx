@@ -27,6 +27,10 @@ export default function CreateBountyForm() {
       setError("Fill scope, deadline, and escrow.");
       return;
     }
+    if (deadlineSec <= Math.floor(Date.now() / 1000) + 60) {
+      setError("Deadline must be at least a minute in the future.");
+      return;
+    }
     setBusy(true);
     try {
       const tx = await writeContractAsync({

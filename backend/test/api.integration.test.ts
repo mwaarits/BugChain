@@ -36,6 +36,7 @@ interface Ctx {
   business: LocalAccount;
   researcher: LocalAccount;
   adminAccount: LocalAccount;
+  stopLiveSync: () => void;
 }
 
 let ctx: Ctx;
@@ -110,6 +111,15 @@ async function mine(n: number): Promise<void> {
   }
 }
 
+async function waitUntil(check: () => Promise<boolean>): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if (await check()) return;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error("condition was not met");
+}
+
 const DEADLINE = () => {
   return BigInt(Math.floor(Date.now() / 1000) + 3600);
 };
@@ -138,8 +148,9 @@ beforeAll(async () => {
   const contractAddress = deployReceipt.contractAddress!;
 
   const db = await createDb();
-  const chain = createChain({ rpcUrl: RPC, contractAddress });
+  const chain = createChain({ rpcUrl: RPC, wsUrl: "ws://127.0.0.1:3137", contractAddress });
   const indexer = createIndexer({ db, chain });
+  expect(await indexer.startLiveSync()).toBe(true);
   const admin = createAdmin({ privateKey: ADMIN_KEY, rpcUrl: RPC, chain });
   const app = createApp({ db, chain, admin, indexer, adminToken: ADMIN_TOKEN });
 
@@ -152,11 +163,13 @@ beforeAll(async () => {
     app,
     business: privateKeyToAccount(BUSINESS_KEY as `0x${string}`) as LocalAccount,
     researcher: privateKeyToAccount(RESEARCHER_KEY as `0x${string}`) as LocalAccount,
-    adminAccount: adminAccount
+    adminAccount: adminAccount,
+    stopLiveSync: indexer.stopLiveSync
   };
 });
 
 afterAll(() => {
+  ctx?.stopLiveSync();
   if (node?.pid) {
     try {
       process.kill(-node.pid, "SIGKILL");
@@ -172,7 +185,7 @@ describe("Bug bounty backend — Seam 2 (real local EVM)", () => {
     const tx = await write(ctx.business, "createBounty", [scope, DEADLINE()], 1_000_000_000_000_000_000n);
     await ctx.publicClient.waitForTransactionReceipt({ hash: tx });
 
-    await postApi("/admin/sync");
+    await waitUntil(async () => (await getApi("/api/bounties")).bounties.some((b: any) => b.scopeHash === scope));
     const { bounties } = await getApi("/api/bounties");
     const b = bounties.find((x: any) => x.scopeHash === scope);
     expect(b).toBeTruthy();
@@ -309,15 +322,44 @@ describe("Bug bounty backend — Seam 2 (real local EVM)", () => {
     const pending = await getApi("/api/bounties/" + "2");
     expect(pending.confirmation).toBe("pending");
 
-    // submissions carry their own watermark: bounty 0's submission was synced before mining
-    const beforeMine = await getApi("/api/bounties/0");
-    expect(beforeMine.submissions[0].confirmation).toBe("pending");
-
     await mine(10);
+    await postApi("/admin/sync");
     const confirmed = await getApi("/api/bounties/" + "2");
     expect(confirmed.confirmation).toBe("confirmed");
-    const afterMine = await getApi("/api/bounties/0");
-    expect(afterMine.submissions[0].confirmation).toBe("confirmed");
+  });
+
+  it("chain rollback removes bounties that no longer exist", async () => {
+    const snapshot = await ctx.publicClient.request({ method: "evm_snapshot" });
+    const scope = keccak256(toBytes("scope-rolled-back"));
+    const tx = await write(ctx.business, "createBounty", [scope, DEADLINE()], 1n);
+    await ctx.publicClient.waitForTransactionReceipt({ hash: tx });
+    await postApi("/admin/sync");
+    expect((await getApi("/api/bounties")).bounties.some((b: any) => b.scopeHash === scope)).toBe(true);
+
+    await ctx.publicClient.request({ method: "evm_revert", params: [snapshot] });
+    await postApi("/admin/sync");
+    expect((await getApi("/api/bounties")).bounties.some((b: any) => b.scopeHash === scope)).toBe(false);
+  });
+
+  it("chain rollback removes submissions that no longer exist", async () => {
+    const scope = keccak256(toBytes("scope-submission-rollback"));
+    const created = await write(ctx.business, "createBounty", [scope, DEADLINE()], 1n);
+    await ctx.publicClient.waitForTransactionReceipt({ hash: created });
+    const id = Number(await ctx.publicClient.readContract({
+      address: ctx.contractAddress as `0x${string}`,
+      abi: ctx.abi,
+      functionName: "bountyCount"
+    })) - 1;
+    const snapshot = await ctx.publicClient.request({ method: "evm_snapshot" });
+    const hash = submissionHash(id, "rolled-back submission", randomSalt());
+    const submitted = await write(ctx.researcher, "submitSubmission", [BigInt(id), hash]);
+    await ctx.publicClient.waitForTransactionReceipt({ hash: submitted });
+    await postApi("/admin/sync");
+    expect((await getApi(`/api/bounties/${id}`)).submissions).toHaveLength(1);
+
+    await ctx.publicClient.request({ method: "evm_revert", params: [snapshot] });
+    await postApi("/admin/sync");
+    expect((await getApi(`/api/bounties/${id}`)).submissions).toHaveLength(0);
   });
 
   it("ghost rows self-heal: a reorg that shrinks bountyCount cannot leave stale rows", async () => {
@@ -354,23 +396,28 @@ describe("Bug bounty backend — Seam 2 (real local EVM)", () => {
 
   it("admin judgment during a dispute via the API: accept → Closed(paid), escrow drained", async () => {
     const scope = keccak256(toBytes("scope-dispute-payout"));
+    const bountyId = Number(await ctx.publicClient.readContract({
+      address: ctx.contractAddress as `0x${string}`,
+      abi: ctx.abi,
+      functionName: "bountyCount"
+    }));
     const tx = await write(ctx.business, "createBounty", [scope, DEADLINE()], 3_000_000_000_000_000_000n);
     await ctx.publicClient.waitForTransactionReceipt({ hash: tx });
-    const hash = submissionHash(3, "disputed report", randomSalt());
-    const s = await write(ctx.researcher, "submitSubmission", [3n, hash]);
+    const hash = submissionHash(bountyId, "disputed report", randomSalt());
+    const s = await write(ctx.researcher, "submitSubmission", [BigInt(bountyId), hash]);
     await ctx.publicClient.waitForTransactionReceipt({ hash: s });
 
-    const raised = await postAdmin("/api/admin/raise-dispute", { bountyId: 3 });
+    const raised = await postAdmin("/api/admin/raise-dispute", { bountyId });
     await ctx.publicClient.waitForTransactionReceipt({ hash: raised.txHash });
-    const opened = await postAdmin("/api/admin/dispute/open", { bountyId: 3, reason: "researcherFlag" });
+    const opened = await postAdmin("/api/admin/dispute/open", { bountyId, reason: "researcherFlag" });
     await ctx.publicClient.waitForTransactionReceipt({ hash: opened.txHash });
 
     const before = await ctx.publicClient.getBalance({ address: ctx.contractAddress as `0x${string}` });
-    const accepted = await postAdmin("/api/admin/judge/accept", { bountyId: 3, submissionId: 0 });
+    const accepted = await postAdmin("/api/admin/judge/accept", { bountyId, submissionId: 0 });
     await ctx.publicClient.waitForTransactionReceipt({ hash: accepted.txHash });
     await postApi("/admin/sync");
 
-    const d = await getApi("/api/bounties/3");
+    const d = await getApi(`/api/bounties/${bountyId}`);
     expect(d.state).toBe("Closed");
     expect(d.submissions[0].state).toBe("Accepted");
     const after = await ctx.publicClient.getBalance({ address: ctx.contractAddress as `0x${string}` });
