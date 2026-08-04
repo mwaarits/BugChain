@@ -9,13 +9,13 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
-- [ ] A Business can connect a wallet and add the BOT Chain network to it with one click (chain ID 677/968 + RPC + explorer via wallet_addEthereumChain).
-- [ ] A Business can create a Bounty for a scope (hashed) with a future deadline, funding it in BOT; the funds are locked in escrow.
-- [ ] `createBounty` reverts when msg.value is zero or the deadline has already passed; a `BountyCreated` event fires on success.
-- [ ] The testnet and mainnet chain configurations (RPC, contract address) swap via environment as the only difference.
-- [ ] The backend snapshots contract state so a created Bounty is immediately readable through the API.
-- [ ] The frontend shows the new Bounty in a list of all bounties after a refresh.
-- [ ] Contract tests prove funds are held (balance-in = balance-out) at creation; API tests prove the create→index→read journey.
-- [ ] ABI + source artifact for the contract is stored in the repo and consumed by the app.
+- [x] A Business can connect a wallet and add the BOT Chain network to it with one click (chain ID 677/968 + RPC + explorer via wallet_addEthereumChain).
+- [x] A Business can create a Bounty for a scope (hashed) with a future deadline, funding it in BOT; the funds are locked in escrow.
+- [x] `createBounty` reverts when msg.value is zero or the deadline has already passed; a `BountyCreated` event fires on success.
+- [x] The testnet and mainnet chain configurations (RPC, contract address) swap via environment as the only difference.
+- [x] The backend snapshots contract state so a created Bounty is immediately readable through the API.
+- [x] The frontend shows the new Bounty in a list of all bounties after a refresh.
+- [x] Contract tests prove funds are held (balance-in = balance-out) at creation; API tests prove the create→index→read journey.
+- [x] ABI + source artifact for the contract is stored in the repo and consumed by the app.

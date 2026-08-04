@@ -4,13 +4,13 @@
 
 **Blocked by:** 08
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
-- [ ] `raiseDispute` is callable by anyone, costs only the flag + event, and records on-chain proof that a protest existed.
-- [ ] `openDispute(reason)` is Admin-only and sets the `inDispute` gate; `closeDispute` is Admin-only.
-- [ ] Opening an owner-silence dispute reverts on-chain until the window measured from the first submission has elapsed.
-- [ ] While `inDispute`, the Admin can accept/reject/mark-all-invalid/confirm-refund and close the dispute; the Business's judgment calls revert.
-- [ ] The Admin has no free withdrawal — funds leave only to an accepted submission's owner or back to the Business.
-- [ ] Resolutions: payout → `Closed(paid)`, refund → `Closed(refunded)`, dismissed → back to `Active` with the standing judgment intact.
-- [ ] Dispute evidence (report copies, communication) is stored off-chain and surfaced to the Admin in the web UI.
-- [ ] Contract tests: timer gate, admin-only gating, abuse prevention (admin cannot self-pay without an accepted submission), each outcome; API tests for the admin endpoints.
+- [x] `raiseDispute` is callable by anyone, costs only the flag + event, and records on-chain proof that a protest existed.
+- [x] `openDispute(reason)` is Admin-only and sets the `inDispute` gate; `closeDispute` is Admin-only.
+- [x] Opening an owner-silence dispute reverts on-chain until the window measured from the first submission has elapsed.
+- [x] While `inDispute`, the Admin can accept/reject/mark-all-invalid/confirm-refund and close the dispute; the Business's judgment calls revert.
+- [x] The Admin has no free withdrawal — funds leave only to an accepted submission's owner or back to the Business.
+- [x] Resolutions: payout → `Closed(paid)`, refund → `Closed(refunded)`, dismissed → back to `Active` with the standing judgment intact.
+- [x] Dispute evidence (report copies, communication) is stored off-chain and surfaced to the Admin in the web UI.
+- [x] Contract tests: timer gate, admin-only gating, abuse prevention (admin cannot self-pay without an accepted submission), each outcome; API tests for the admin endpoints.

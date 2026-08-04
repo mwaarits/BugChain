@@ -57,6 +57,15 @@ No code or ABI changes — `abis/BountyEscrow.json` already matches (verify byte
 
 ## 5. Smoke test (full life)
 
+Automated route (recommended):
+
+1. Start the backend with `set -a; source backend/.env; set +a; npm run dev --workspace backend`.
+2. In another terminal, load the same environment with `set -a; source backend/.env; set +a`. The script generates distinct disposable Business and Researcher accounts by default, then funds their gas from the admin account. To reuse test wallets, export `SMOKE_BUSINESS_PRIVATE_KEY` and `SMOKE_RESEARCHER_PRIVATE_KEY`.
+3. Run `npm run smoke:testnet --workspace backend` from the repo root. The script refuses to run unless the chain is `968`, the address contains bytecode, and `ADMIN_PRIVATE_KEY` belongs to the deployed contract admin.
+4. Save the emitted JSON. It contains only public addresses, bounty ids, balances, and transaction hashes; it never prints private keys.
+
+The script creates four disposable `0.001 BOT` bounties and asserts payout, cancel, refund, dispute, and final `Closed` states. To test the browser UI manually instead:
+
 1. Frontend: connect wallet → "Add BOT Chain" → create a small funded Bounty.
 2. Researcher wallet: submit a report, download the receipt JSON, confirm the submission shows in the list as `pending` → `confirmed`.
 3. Business: accept → check the researcher received the payout and the bounty is `Closed`.

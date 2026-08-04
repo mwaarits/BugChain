@@ -12,6 +12,7 @@
     "pretest": "npm run build --workspace @gmtbuilder/shared",
     "test": "vitest run",
     "test:watch": "vitest",
+    "smoke:testnet": "tsx scripts/smoke-testnet.ts",
     "pretypecheck": "npm run build --workspace @gmtbuilder/shared",
     "typecheck": "tsc --noEmit"
   },
