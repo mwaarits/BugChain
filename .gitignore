@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+cache/
+artifacts/
+typechain-types/
+*.tsbuildinfo
+.env
+.env.local
+.DS_Store
+*.log
+graphify-out/
+graphify/

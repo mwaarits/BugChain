@@ -1,0 +1,18 @@
+{
+  "name": "gmtbuilder",
+  "private": true,
+  "description": "Bug bounty platform on BOT Chain — contracts, backend, frontend",
+  "workspaces": [
+    "contracts",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build:contracts": "npm run build --workspace contracts"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
