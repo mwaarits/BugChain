@@ -1,4 +1,4 @@
-name: "BugChain - Ready Player One"
+name: "BugChain"
 
 description: "A Blockhain based Bug Bounty platform on BOT Chain (escrow)"
 
