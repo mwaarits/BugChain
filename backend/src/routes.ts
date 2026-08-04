@@ -29,7 +29,7 @@ export function createApp(opts: { db: Db; chain: Chain; admin: Admin; indexer: I
   const sessions = new Map<string, Session>();
   const nonces = new Map<string, { nonce: string; expiresAt: number }>();
 
-  app.use("/api/*", cors());
+  app.use(cors());
 
   const requireAdmin = (c: Context) => {
     const header = c.req.header("authorization");
