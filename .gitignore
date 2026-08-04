@@ -11,3 +11,17 @@ typechain-types/
 *.log
 graphify-out/
 graphify/
+
+# Agent tooling, specs, and docs — not part of the app repo
+.agents/
+.claude/
+.opencode/
+.scratch/
+docs/
+runbooks/
+e2e/
+AGENTS.md
+CLAUDE.md
+CONTEXT.md
+skills-lock.json
+playwright.config.ts
